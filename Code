@@ -1,0 +1,380 @@
+section .data
+welcome db "Higher or Lower Game",10
+welcomeLen equ $-welcome
+
+gameinfo db "Acceptable inputs are h/H for higher and l/L for lower",10
+gameinfoLen equ $-gameinfo
+
+nameQ db "what is your name? "
+nameQLen equ $-nameQ
+
+is db "Is "
+isLen equ $-is
+
+question db " higher or lower than "
+questionLen equ $-question
+
+correct db "That was the correct answer "
+correctLen equ $-correct
+
+high db " it was higher.",10
+highLen equ $-high
+
+low db " it was lower.",10
+lowLen equ $-low
+
+wrong db "That was the incorrect answer "
+wrongLen equ $-wrong
+
+totalmsg db " lives remaining out of 3",10
+totalmsgLen equ $-totalmsg
+
+congrats db "Congrats "
+congratsLen equ $-congrats
+
+unlucky db "Unlucky "
+unluckyLen equ $-unlucky
+
+winmsg db " you won!",10
+winmsgLen equ $-winmsg
+
+losemsg db " you lost.",10
+losemsgLen equ $-losemsg
+
+rowmsg db " questions right in a row.",10
+rowmsgLen equ $-rowmsg
+
+lives dq 3
+livesbuf db "00"
+num1 dq 0
+num2 dq 0
+num1buf db "00"
+num2buf db "00"
+newline db 10
+score dq 0
+scorebuf db "00"
+
+section .bss
+input resb 2
+name resb 100
+
+section .text
+global _start
+
+_start:
+    ; welcome
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, welcome
+    mov rdx, welcomeLen
+    syscall
+
+    ; game info
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, gameinfo
+    mov rdx, gameinfoLen
+    syscall
+
+    ; name question
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, nameQ
+    mov rdx, nameQLen
+    syscall
+
+    ; reads the input for name
+    mov rax, 0
+    mov rdi, 0
+    mov rsi, name
+    mov rdx, 100
+    syscall
+
+    mov r12, rax
+    dec r12
+    mov byte [name + r12], 0
+
+quiz:
+    ; generates the first random number
+    call randomvalue
+    mov [num1], rdx
+
+generate_second:
+    ; generates the second random number
+    call randomvalue
+    cmp rdx, [num1]
+    je generate_second
+    mov [num2], rdx
+
+    ; convert numbers to Ascii
+    mov rax, [num1]
+    mov rdi, num1buf
+    call toAscii
+    mov rax, [num2]
+    mov rdi, num2buf
+    call toAscii
+
+    ; print is
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, is
+    mov rdx, isLen
+    syscall
+
+    ; print num1
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, num1buf
+    mov rdx, 2
+    syscall
+
+    ; print question text
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, question
+    mov rdx, questionLen
+    syscall
+
+    ; print num2
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, num2buf
+    mov rdx, 2
+    syscall
+
+    ; newline
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, newline
+    mov rdx, 1
+    syscall
+
+    ; reads the input
+    mov rax, 0
+    mov rdi, 0
+    mov rsi, input
+    mov rdx, 2
+    syscall
+
+    call checkAnswer
+
+    ; converts amount of lives from int to Ascii
+    mov rax, [lives]
+    mov rdi, livesbuf
+    call toAscii
+
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, livesbuf
+    mov rdx, 2
+    syscall
+
+    ; prints lives message
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, totalmsg
+    mov rdx, totalmsgLen
+    syscall
+
+    mov rax, [score]
+    mov rdi, scorebuf
+    call toAscii
+
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, scorebuf
+    mov rdx, 2
+    syscall
+
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, rowmsg
+    mov rdx, rowmsgLen
+    syscall
+
+    cmp qword [score], 3
+    je win
+
+    cmp qword [lives], 0
+    jz lose
+    jnz quiz
+
+
+randomvalue:
+    rdtsc
+    xor eax, edx
+    xor edx, edx
+    mov ebx, 100
+    div ebx
+    ret
+
+toAscii:
+    xor rdx, rdx
+    mov rcx, 10
+    div rcx
+    add al, '0'
+    add dl, '0'
+    mov [rdi], al
+    mov [rdi+1], dl
+    ret
+
+checkAnswer:
+    mov rax, [num1]
+    mov rbx, [num2]
+
+    cmp byte [input], 'H'
+    je checkHigher
+    cmp byte [input], 'h'
+    je checkHigher
+
+    cmp byte [input], 'L'
+    je checkLower
+    cmp byte [input], 'l'
+    je checkLower
+
+    ;jmp wrongAnswer
+
+checkHigher:
+    cmp rax, rbx
+    jg correctHigher
+    jmp wrongHigher
+
+checkLower:
+    cmp rax, rbx
+    jl correctLower
+    jmp wrongLower
+
+correctHigher:
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, correct
+    mov rdx, correctLen
+    syscall
+
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, name
+    mov rdx, r12
+    syscall
+
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, high
+    mov rdx, highLen
+    syscall
+    add qword [score], 1
+    ret
+
+correctLower:
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, correct
+    mov rdx, correctLen
+    syscall
+
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, name
+    mov rdx, r12
+    syscall
+
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, low
+    mov rdx, lowLen
+    syscall
+
+    add qword [score], 1
+    ret
+
+wrongLower:
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, wrong
+    mov rdx, wrongLen
+    syscall
+
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, name
+    mov rdx, r12
+    syscall
+
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, high
+    mov rdx, highLen
+    syscall
+
+    mov qword [score], 0
+    add qword [lives], -1
+    ret
+
+wrongHigher:
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, wrong
+    mov rdx, wrongLen
+    syscall
+
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, name
+    mov rdx, r12
+    syscall
+
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, low
+    mov rdx, lowLen
+    syscall
+
+    mov qword [score], 0
+    add qword [lives], -1
+    ret
+
+win:
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, congrats
+    mov rdx, congratsLen
+    syscall
+
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, name
+    mov rdx, r12
+    syscall
+
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, winmsg
+    mov rdx, winmsgLen
+    syscall
+
+    call exit
+lose:
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, unlucky
+    mov rdx, unluckyLen
+    syscall
+
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, name
+    mov rdx, r12
+    syscall
+
+    mov rax, 1
+    mov rdi, 1
+    mov rsi, losemsg
+    mov rdx, losemsgLen
+    syscall
+
+    call exit
+
+exit:
+    mov rax, 60
+    xor rdi, rdi
+    syscall
